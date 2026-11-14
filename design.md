@@ -18,6 +18,7 @@ input and shows only enough to identify the person and guide them.
 | Laptop link | Ethernet cable to the router's LAN port. Carries live data and the laptop's internet. |
 | Backend | One small program serving the pages, the WebSocket link and the room logic. Written in Go, built as a single file with the pages embedded. |
 | Where the backend runs | On the laptop while developing; on the router for shows, so phones stay connected if the laptop restarts. Same program in both places. |
+| Control panel | Holds the debug information, including touch events. Shares the `/crowd` page with the visual display for now; to be split into its own page closer to shipping. |
 | Internet | The router has an uplink. The laptop gets internet through it while the visitor network keeps running. The show must still run with the uplink unplugged. |
 | Two networks | A captive visitor network (reaches only the backend) and a private network (internet plus backend). |
 | Secure pages | Planned: a certificate for a domain we own, renewed automatically whenever the router is online. Needs a domain, and should be decided early because it sets the page address. |
@@ -118,6 +119,13 @@ Items raised but not decided. To be talked through later.
   backend redirects the phone's connectivity checks to the page. The
   alternative is openNDS, a ready-made captive portal package for OpenWrt.
 
+## Visual polish
+
+To do once several visual experiments exist.
+
+- **Transitions between experiments**: ideas for clever transitions will come
+  from having more than one experiment to move between.
+
 ## Future ideas
 - **Camera and motion input**: available once pages are served securely.
 - **Position from a photo**: everyone holds up their phone, and a photo of the
@@ -126,6 +134,12 @@ Items raised but not decided. To be talked through later.
   recognise them and work out where people are relative to each other.
 - **Find your match**: people look for the person whose phone shows the same
   icon as theirs.
+
+## References
+
+- [From Skydomes to Simulations: Interview with Yoshi Sodeoka](https://verse.works/journal/interview-with-yoshi-sodeoka)
+  (Verse, 4 Sept 2024). He describes a framework built in After Effects and
+  heavy use of expressions to randomise elements.
 
 ## Terms
 

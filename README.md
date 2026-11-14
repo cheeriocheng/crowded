@@ -17,6 +17,31 @@ Then open the addresses it prints:
 
 Stop with Ctrl-C. Run it again after changing any file.
 
+## Visual experiments
+
+These live in `visual/` and run separately from the backend for now. See
+[plan.md](plan.md).
+
+One-time: copy the clip 2 scene from free_range, then install the libraries.
+
+```bash
+mkdir -p visual/public/scenes && cp ~/dev/free_range/data/img_gaussian_splat/img.splat visual/public/scenes/clip2.splat
+```
+
+```bash
+PATH="$HOME/.nvm/versions/node/v22.22.3/bin:$PATH" npm --prefix visual install
+```
+
+Run, then open the address it prints (usually `http://localhost:5173/`):
+
+```bash
+PATH="$HOME/.nvm/versions/node/v22.22.3/bin:$PATH" npm --prefix visual run dev
+```
+
+The `PATH=…` part selects Node 22, which these tools need; this Mac's default
+Node is 18. With Node 22 already active, plain `npm --prefix visual run dev`
+is enough.
+
 ## The short form
 
 Go is installed in `~/.local/go`, and `~/.zshrc` adds it to the PATH, so in

@@ -3,6 +3,11 @@
 /crowded-*
 /dist/
 
+# Visual project: installed libraries, build output, large scene files
+node_modules/
+/visual/dist/
+/visual/public/scenes/
+
 # Go test and profiling output
 *.test
 *.out
