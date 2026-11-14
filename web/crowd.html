@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>crowded — main screen</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #status {
+    position: fixed; left: 12px; bottom: 10px;
+    color: #666; font: 13px/1 -apple-system, system-ui, sans-serif;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="status">connecting…</div>
+<script>
+const canvas = document.getElementById('c');
+const g = canvas.getContext('2d');
+const statusEl = document.getElementById('status');
+
+const MARK_RADIUS = 30;  // in world units
+const SMOOTHING = 0.25;  // share of the remaining distance covered each frame
+
+let world = { w: 1600, h: 900 };
+const marks = new Map(); // id -> {color, sides, online, x, y, tx, ty}
+let connected = false;
+
+function connect() {
+  const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${scheme}://${location.host}/ws?role=screen`);
+  ws.onopen = () => { connected = true; };
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.t !== 'state') return;
+    world = { w: m.w, h: m.h };
+    const seen = new Set();
+    for (const p of m.players) {
+      seen.add(p.id);
+      let k = marks.get(p.id);
+      if (!k) { k = { x: p.x, y: p.y }; marks.set(p.id, k); }
+      k.color = p.color; k.sides = p.sides; k.online = p.online;
+      k.tx = p.x; k.ty = p.y;
+    }
+    for (const id of marks.keys()) if (!seen.has(id)) marks.delete(id);
+  };
+  ws.onclose = () => { connected = false; setTimeout(connect, 1000); };
+}
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(innerWidth * dpr);
+  canvas.height = Math.round(innerHeight * dpr);
+}
+addEventListener('resize', resize);
+resize();
+
+function polygon(x, y, r, sides) {
+  g.beginPath();
+  for (let i = 0; i < sides; i++) {
+    const a = -Math.PI / 2 + i * 2 * Math.PI / sides;
+    const px = x + r * Math.cos(a), py = y + r * Math.sin(a);
+    if (i === 0) g.moveTo(px, py); else g.lineTo(px, py);
+  }
+  g.closePath();
+}
+
+function frame() {
+  // Fit the shared world inside this window, keeping its proportions.
+  const scale = Math.min(canvas.width / world.w, canvas.height / world.h);
+  const ox = (canvas.width - world.w * scale) / 2;
+  const oy = (canvas.height - world.h * scale) / 2;
+
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, canvas.width, canvas.height);
+  g.setTransform(scale, 0, 0, scale, ox, oy);
+
+  g.fillStyle = '#0c0c0c';
+  g.fillRect(0, 0, world.w, world.h);
+
+  let online = 0;
+  for (const k of marks.values()) {
+    k.x += (k.tx - k.x) * SMOOTHING;
+    k.y += (k.ty - k.y) * SMOOTHING;
+    if (k.online) online++;
+    g.globalAlpha = k.online ? 1 : 0.25;
+    g.fillStyle = k.color;
+    polygon(k.x, k.y, MARK_RADIUS, k.sides);
+    g.fill();
+  }
+  g.globalAlpha = 1;
+
+  statusEl.textContent = connected ? `${online} connected` : 'reconnecting…';
+  requestAnimationFrame(frame);
+}
+
+connect();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

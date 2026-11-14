@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>crowded</title>
+<style>
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: #111; color: #111;
+    font: 16px/1.3 -apple-system, system-ui, sans-serif;
+    touch-action: none; overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+  }
+  #pad {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 24px;
+    transition: background-color 0.3s;
+  }
+  svg { width: 60vmin; height: 60vmin; }
+  #hint { opacity: 0.7; min-height: 1.3em; }
+  .waiting #hint { color: #999; }
+</style>
+</head>
+<body>
+<div id="pad" class="waiting">
+  <svg viewBox="-110 -110 220 220" aria-hidden="true"><polygon id="shape" fill="#111"></polygon></svg>
+  <div id="hint">connecting…</div>
+</div>
+<script>
+const pad = document.getElementById('pad');
+const shape = document.getElementById('shape');
+const hint = document.getElementById('hint');
+
+const SEND_EVERY_MS = 50; // 20 per second
+
+// Identity survives a reload of this tab. Each tab is its own participant.
+function loadToken() {
+  try { return sessionStorage.getItem('token') || ''; } catch { return ''; }
+}
+function saveToken(t) {
+  try { sessionStorage.setItem('token', t); } catch {}
+}
+
+function polygonPoints(sides, radius) {
+  const pts = [];
+  for (let i = 0; i < sides; i++) {
+    const a = -Math.PI / 2 + i * 2 * Math.PI / sides;
+    pts.push((radius * Math.cos(a)).toFixed(1) + ',' + (radius * Math.sin(a)).toFixed(1));
+  }
+  return pts.join(' ');
+}
+
+let ws = null;
+let token = loadToken();
+let retryMs = 500;
+
+function connect() {
+  const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${scheme}://${location.host}/ws?role=phone&token=${encodeURIComponent(token)}`);
+
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.t !== 'welcome') return;
+    token = m.token;
+    saveToken(token);
+    retryMs = 500;
+    pad.style.backgroundColor = m.color;
+    shape.setAttribute('points', polygonPoints(m.sides, 100));
+    pad.classList.remove('waiting');
+    hint.textContent = 'drag to move';
+  };
+
+  ws.onclose = () => {
+    pad.classList.add('waiting');
+    pad.style.backgroundColor = '';
+    shape.removeAttribute('points');
+    hint.textContent = 'reconnecting…';
+    setTimeout(connect, retryMs);
+    retryMs = Math.min(retryMs * 2, 3000);
+  };
+}
+
+// Relative movement: only the distance dragged is sent, never the position
+// on the phone, so screen size and shape do not matter.
+let activePointer = null;
+let lastX = 0, lastY = 0;
+let pendingX = 0, pendingY = 0;
+
+pad.addEventListener('pointerdown', (e) => {
+  if (activePointer !== null) return;
+  activePointer = e.pointerId;
+  lastX = e.clientX; lastY = e.clientY;
+  pad.setPointerCapture(e.pointerId);
+});
+pad.addEventListener('pointermove', (e) => {
+  if (e.pointerId !== activePointer) return;
+  pendingX += e.clientX - lastX;
+  pendingY += e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+});
+function release(e) {
+  if (e.pointerId === activePointer) activePointer = null;
+}
+pad.addEventListener('pointerup', release);
+pad.addEventListener('pointercancel', release);
+
+setInterval(() => {
+  if (!pendingX && !pendingY) return;
+  if (!ws || ws.readyState !== WebSocket.OPEN) { pendingX = pendingY = 0; return; }
+  ws.send(JSON.stringify({ t: 'move', dx: pendingX, dy: pendingY }));
+  pendingX = pendingY = 0;
+}, SEND_EVERY_MS);
+
+connect();
+</script>
+</body>
+</html>
